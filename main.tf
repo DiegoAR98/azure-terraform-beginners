@@ -11,9 +11,19 @@
 
 # The latest version of the Azure provider breaks backward compatibility.
 # TODO: Update this code to use the latest provider.
-provider "azurerm" {
-  version = "=1.44.0"
+terraform {
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 3.0"
+    }
+  }
 }
+
+provider "azurerm" {
+  features {}
+}
+
 
 # First we'll create a resource group. In Azure every resource belongs to a 
 # resource group. Think of it as a container to hold all your resources. 
@@ -46,8 +56,9 @@ resource "azurerm_subnet" "subnet" {
   name                 = "${var.prefix}subnet"
   virtual_network_name = "${azurerm_virtual_network.vnet.name}"
   resource_group_name  = "${azurerm_resource_group.tf_azure_guide.name}"
-  address_prefix       = "${var.subnet_prefix}"
+  address_prefixes     = ["${var.subnet_prefix}"]  # Updated to 'address_prefixes'
 }
+
 
 ##############################################################################
 # * Build an Ubuntu 16.04 Linux VM
@@ -92,10 +103,9 @@ resource "azurerm_network_security_group" "tf-guide-sg" {
 # A network interface. This is required by the azurerm_virtual_machine 
 # resource. Terraform will let you know if you're missing a dependency.
 resource "azurerm_network_interface" "tf-guide-nic" {
-  name                      = "${var.prefix}tf-guide-nic"
-  location                  = "${var.location}"
-  resource_group_name       = "${azurerm_resource_group.tf_azure_guide.name}"
-  network_security_group_id = "${azurerm_network_security_group.tf-guide-sg.id}"
+  name                = "${var.prefix}tf-guide-nic"
+  location            = "${var.location}"
+  resource_group_name = "${azurerm_resource_group.tf_azure_guide.name}"
 
   ip_configuration {
     name                          = "${var.prefix}ipconfig"
@@ -104,17 +114,23 @@ resource "azurerm_network_interface" "tf-guide-nic" {
     public_ip_address_id          = "${azurerm_public_ip.tf-guide-pip.id}"
   }
 }
+resource "azurerm_network_interface_security_group_association" "nic_nsg_assoc" {
+  network_interface_id      = azurerm_network_interface.tf-guide-nic.id
+  network_security_group_id = azurerm_network_security_group.tf-guide-sg.id
+}
+
 
 # Every Azure Virtual Machine comes with a private IP address. You can also 
 # optionally add a public IP address for Internet-facing applications and 
 # demo environments like this one.
 resource "azurerm_public_ip" "tf-guide-pip" {
-  name                         = "${var.prefix}-ip"
-  location                     = "${var.location}"
-  resource_group_name          = "${azurerm_resource_group.tf_azure_guide.name}"
-  public_ip_address_allocation = "Dynamic"
-  domain_name_label            = "${var.hostname}"
+  name                = "${var.prefix}-ip"
+  location            = "${var.location}"
+  resource_group_name = "${azurerm_resource_group.tf_azure_guide.name}"
+  allocation_method   = "Dynamic"  # Updated to 'allocation_method'
+  domain_name_label   = "${var.hostname}"
 }
+
 
 # And finally we build our virtual machine. This is a standard Ubuntu instance.
 # We use the shell provisioner to run a Bash script that configures Apache for 
